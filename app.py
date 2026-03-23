@@ -64,21 +64,32 @@ elif choice == "Login":
             st.session_state.user = user
             st.session_state.authenticated = True
 
-            # OTP Verification
+            # -------------------------------
+            # OTP Verification (Optional)
+            # -------------------------------
             otp = generate_otp()
             st.session_state.generated_otp = otp
             sent = send_otp(email, otp)
+
             if sent:
-                st.info("OTP sent to your email")
-                entered_otp = st.text_input("Enter OTP")
-                if st.button("Verify OTP"):
-                    if entered_otp == st.session_state.generated_otp:
-                        st.success("OTP Verified! Access granted.")
-                        st.session_state.otp_verified = True
-                    else:
-                        st.error("Invalid OTP")
+                # If Gmail configured, ask OTP
+                if st.secrets.get("GMAIL_USER", None) and st.secrets.get("GMAIL_PASSWORD", None):
+                    st.info("OTP sent to your email")
+                    entered_otp = st.text_input("Enter OTP")
+                    if st.button("Verify OTP"):
+                        if entered_otp == st.session_state.generated_otp:
+                            st.success("OTP Verified! Access granted.")
+                            st.session_state.otp_verified = True
+                        else:
+                            st.error("Invalid OTP")
+                else:
+                    # Gmail not configured → skip OTP
+                    st.session_state.otp_verified = True
+                    st.success("Login successful (OTP skipped).")
             else:
-                st.error("Failed to send OTP. Check Gmail config.")
+                st.session_state.otp_verified = True
+                st.warning("OTP skipped due to email configuration.")
+
         else:
             st.error(msg)
 
@@ -110,12 +121,16 @@ elif choice == "Add Password":
     site = st.text_input("Site Name")
     username = st.text_input("Username/Email")
     password = st.text_input("Password", type="password")
-    strength = check_password_strength(password)
-    st.info(f"Password Strength: {strength}")
+    if password:
+        strength = check_password_strength(password)
+        st.info(f"Password Strength: {strength}")
     if st.button("Add"):
-        enc = encrypt_password(password)
-        add_password(st.session_state.user[0], site, username, enc)
-        st.success("Password added successfully!")
+        if site and username and password:
+            enc = encrypt_password(password)
+            add_password(st.session_state.user[0], site, username, enc)
+            st.success("Password added successfully!")
+        else:
+            st.error("Please fill all fields")
 
 # -------------------------------
 # VIEW VAULT
