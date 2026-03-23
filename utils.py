@@ -1,77 +1,77 @@
-import random
-import string
 import csv
-from io import StringIO
-
+import io
+import string
+import random
+from cryptography.fernet import Fernet
 
 # -------------------------------
 # PASSWORD STRENGTH CHECKER
 # -------------------------------
 def check_password_strength(password):
     length = len(password)
-    has_upper = any(c.isupper() for c in password)
-    has_lower = any(c.islower() for c in password)
-    has_digit = any(c.isdigit() for c in password)
-    has_special = any(c in string.punctuation for c in password)
+    lower = any(c.islower() for c in password)
+    upper = any(c.isupper() for c in password)
+    digit = any(c.isdigit() for c in password)
+    special = any(c in string.punctuation for c in password)
 
-    score = 0
-    if length >= 12:
-        score += 2
-    elif length >= 8:
-        score += 1
+    score = sum([lower, upper, digit, special])
 
-    if has_upper: score += 1
-    if has_lower: score += 1
-    if has_digit: score += 1
-    if has_special: score += 1
-
-    if score <= 2:
-        return "Weak"
-    elif score <= 4:
+    if length >= 12 and score >= 3:
+        return "Strong"
+    elif length >= 8 and score >= 2:
         return "Medium"
     else:
-        return "Strong"
-
+        return "Weak"
 
 # -------------------------------
-# STRONG PASSWORD GENERATOR
+# AI STRONG PASSWORD GENERATOR
 # -------------------------------
 def generate_strong_password(length=16):
-    if length < 12:
-        length = 12  # minimum for strong passwords
-
     all_chars = string.ascii_letters + string.digits + string.punctuation
-    password = ''.join(random.choice(all_chars) for _ in range(length))
-    return password
-
+    while True:
+        pwd = ''.join(random.choice(all_chars) for _ in range(length))
+        if check_password_strength(pwd) == "Strong":
+            return pwd
 
 # -------------------------------
-# EXPORT PASSWORDS TO CSV
+# EXPORT TO CSV
 # -------------------------------
-def export_to_csv(passwords):
+def export_to_csv(data):
     """
-    passwords: list of tuples (site, username, password)
-    returns CSV string
+    data: list of tuples (id, user_id, site, username, password, category, favorite)
     """
-    output = StringIO()
+    output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Site", "Username", "Password"])
-    for entry in passwords:
-        writer.writerow([entry[1], entry[2], entry[3]])  # site, username, password
+    writer.writerow(["Site", "Username", "Password", "Category", "Favorite"])
+    for row in data:
+        writer.writerow([row[2], row[3], row[4], row[5], "Yes" if row[6]==1 else "No"])
     return output.getvalue()
 
-
 # -------------------------------
-# IMPORT PASSWORDS FROM CSV
+# IMPORT FROM CSV
 # -------------------------------
-def import_from_csv(csv_file):
+def import_from_csv(uploaded_file):
     """
-    csv_file: Uploaded file object from Streamlit
-    returns list of tuples (site, username, password)
+    uploaded_file: file object from Streamlit uploader
+    Returns: list of tuples (site, username, password)
     """
-    decoded = csv_file.read().decode("utf-8")
-    reader = csv.DictReader(StringIO(decoded))
     entries = []
+    decoded = io.StringIO(uploaded_file.getvalue().decode("utf-8"))
+    reader = csv.DictReader(decoded)
     for row in reader:
         entries.append((row["Site"], row["Username"], row["Password"]))
     return entries
+
+# -------------------------------
+# ENCRYPTED EXPORT
+# -------------------------------
+def generate_encrypted_export(data, key=None):
+    """
+    Returns CSV as bytes encrypted with Fernet key
+    """
+    if key is None:
+        key = Fernet.generate_key()
+    fernet = Fernet(key)
+    csv_data = export_to_csv(data)
+    encrypted = fernet.encrypt(csv_data.encode())
+    return encrypted
