@@ -1,4 +1,4 @@
-xfrom cryptography.fernet import Fernet
+from cryptography.fernet import Fernet
 import os
 
 KEY_FILE = "secret.key"
